@@ -3,27 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>Live Camera</title>
 
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
-      font-family: Arial, sans-serif;
-      background: #f5f7fb;
+      margin: 0;
+      padding: 20px;
       min-height: 100vh;
       display: flex;
-      justify-content: center;
       align-items: center;
-      padding: 20px;
+      justify-content: center;
+      font-family: Arial, sans-serif;
+      background: #f5f7fb;
     }
 
     .card {
       width: 100%;
-      max-width: 420px;
+      max-width: 430px;
       background: white;
       padding: 25px;
       border-radius: 24px;
       text-align: center;
-      box-shadow: 0 10px 35px rgba(0,0,0,0.08);
+      box-shadow: 0 10px 35px rgba(0,0,0,.08);
     }
 
     h1 {
@@ -32,13 +38,23 @@
 
     p {
       color: #666;
+      line-height: 1.5;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px;
+      margin: 10px 0;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      font-size: 16px;
     }
 
     button {
       width: 100%;
       padding: 15px;
-      margin-top: 15px;
-      border: none;
+      margin-top: 10px;
+      border: 0;
       border-radius: 14px;
       background: #2563eb;
       color: white;
@@ -46,8 +62,9 @@
       font-weight: bold;
     }
 
-    #status {
-      margin-top: 15px;
+    #stopButton {
+      background: #dc2626;
+      display: none;
     }
 
     video {
@@ -57,134 +74,553 @@
       background: #111;
       display: none;
     }
+
+    #status {
+      margin-top: 15px;
+      font-size: 14px;
+    }
   </style>
 </head>
 
 <body>
 
-  <div class="card">
+<div class="card">
 
-    <h1>📹 Live Camera</h1>
+  <h1>📹 Live Camera</h1>
 
-    <p>
-      Turn on your camera with your permission.
-    </p>
+  <p>
+    Camera sharing requires permission.
+    The camera user must tap the button and allow access.
+  </p>
 
-    <button id="startButton">
-      Turn On Camera
-    </button>
+  <input
+    id="roomInput"
+    type="text"
+    placeholder="Enter room code"
+    autocomplete="off"
+  >
 
-    <p id="status">
-      Camera is off.
-    </p>
+  <button id="cameraButton">
+    I’m the Camera
+  </button>
 
-    <video id="camera" autoplay playsinline></video>
+  <button id="viewerButton">
+    I’m the Viewer
+  </button>
 
-  </div>
+  <button id="stopButton">
+    Stop Camera
+  </button>
 
-  <script type="module">
+  <p id="status">
+    Choose Camera or Viewer.
+  </p>
 
-    import { initializeApp }
-      from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  <video id="localVideo" autoplay playsinline muted></video>
 
-    import {
-      getDatabase
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+  <video id="remoteVideo" autoplay playsinline></video>
 
-    import {
-      getAuth,
-      signInAnonymously
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-
-    const firebaseConfig = {
-
-      apiKey: "AIzaSyBuv5MdRQ92PDoh1uG7Ef4cFDUYvkwLUq4",
-
-      authDomain: "gwapa-436c1.firebaseapp.com",
-
-      databaseURL:
-        "https://gwapa-436c1-default-rtdb.firebaseio.com",
-
-      projectId: "gwapa-436c1",
-
-      storageBucket:
-        "gwapa-436c1.firebasestorage.app",
-
-      messagingSenderId: "783722665776",
-
-      appId:
-        "1:783722665776:web:dc68aecf1bad7fef905af5"
-    };
+</div>
 
 
-    const app = initializeApp(firebaseConfig);
+<script type="module">
 
-    const db = getDatabase(app);
+  import { initializeApp }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
-    const auth = getAuth(app);
+  import {
+    getDatabase,
+    ref,
+    set,
+    get,
+    push,
+    onValue,
+    onChildAdded
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-
-    try {
-
-      await signInAnonymously(auth);
-
-      console.log("Firebase connected.");
-
-    } catch (error) {
-
-      console.error("Firebase error:", error);
-
-    }
-
-
-    const startButton =
-      document.getElementById("startButton");
-
-    const video =
-      document.getElementById("camera");
-
-    const status =
-      document.getElementById("status");
+  import {
+    getAuth,
+    signInAnonymously
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 
-    let stream = null;
+  const firebaseConfig = {
+
+    apiKey:
+      "AIzaSyBuv5MdRQ92PDoh1uG7Ef4cFDUYvkwLUq4",
+
+    authDomain:
+      "gwapa-436c1.firebaseapp.com",
+
+    databaseURL:
+      "https://gwapa-436c1-default-rtdb.firebaseio.com",
+
+    projectId:
+      "gwapa-436c1",
+
+    storageBucket:
+      "gwapa-436c1.firebasestorage.app",
+
+    messagingSenderId:
+      "783722665776",
+
+    appId:
+      "1:783722665776:web:dc68aecf1bad7fef905af5"
+  };
 
 
-    startButton.addEventListener("click", async function() {
+  const app = initializeApp(firebaseConfig);
+
+  const db = getDatabase(app);
+
+  const auth = getAuth(app);
+
+
+  await signInAnonymously(auth);
+
+
+  const roomInput =
+    document.getElementById("roomInput");
+
+  const cameraButton =
+    document.getElementById("cameraButton");
+
+  const viewerButton =
+    document.getElementById("viewerButton");
+
+  const stopButton =
+    document.getElementById("stopButton");
+
+  const status =
+    document.getElementById("status");
+
+  const localVideo =
+    document.getElementById("localVideo");
+
+  const remoteVideo =
+    document.getElementById("remoteVideo");
+
+
+  let localStream = null;
+  let peerConnection = null;
+  let roomId = null;
+
+
+  const servers = {
+
+    iceServers: [
+
+      {
+        urls: "stun:stun.l.google.com:19302"
+      }
+
+    ]
+
+  };
+
+
+  function createConnection() {
+
+    peerConnection =
+      new RTCPeerConnection(servers);
+
+    peerConnection.onicecandidate =
+      async function(event) {
+
+        if (!event.candidate) return;
+
+        const candidatesRef =
+          ref(
+            db,
+            "rooms/" +
+            roomId +
+            "/candidates"
+          );
+
+        await push(
+          candidatesRef,
+          {
+            candidate:
+              event.candidate.toJSON()
+          }
+        );
+
+      };
+
+
+    peerConnection.ontrack =
+      function(event) {
+
+        remoteVideo.srcObject =
+          event.streams[0];
+
+        remoteVideo.style.display =
+          "block";
+
+        status.textContent =
+          "🟢 Live camera connected.";
+
+      };
+
+  }
+
+
+  cameraButton.addEventListener(
+    "click",
+    async function() {
+
+      roomId =
+        roomInput.value.trim();
+
+      if (!roomId) {
+
+        status.textContent =
+          "❌ Enter a room code first.";
+
+        return;
+
+      }
+
 
       try {
 
         status.textContent =
           "Requesting camera permission...";
 
-        stream =
+
+        localStream =
           await navigator.mediaDevices.getUserMedia({
+
             video: true,
             audio: false
+
           });
 
-        video.srcObject = stream;
 
-        video.style.display = "block";
+        localVideo.srcObject =
+          localStream;
 
-        startButton.style.display = "none";
+        localVideo.style.display =
+          "block";
+
+
+        createConnection();
+
+
+        localStream
+          .getTracks()
+          .forEach(function(track) {
+
+            peerConnection.addTrack(
+              track,
+              localStream
+            );
+
+          });
+
+
+        const offer =
+          await peerConnection.createOffer();
+
+
+        await peerConnection.setLocalDescription(
+          offer
+        );
+
+
+        await set(
+
+          ref(
+            db,
+            "rooms/" +
+            roomId +
+            "/offer"
+          ),
+
+          {
+            type: offer.type,
+            sdp: offer.sdp
+          }
+
+        );
+
+
+        cameraButton.style.display =
+          "none";
+
+        viewerButton.style.display =
+          "none";
+
+        stopButton.style.display =
+          "block";
+
 
         status.textContent =
-          "🟢 Camera is ON.";
+          "🟢 Camera is ON. Waiting for viewer...";
+
+
+        onValue(
+
+          ref(
+            db,
+            "rooms/" +
+            roomId +
+            "/answer"
+          ),
+
+          async function(snapshot) {
+
+            const answer =
+              snapshot.val();
+
+            if (
+              answer &&
+              !peerConnection.currentRemoteDescription
+            ) {
+
+              await peerConnection.setRemoteDescription(
+                answer
+              );
+
+              status.textContent =
+                "🟢 Viewer connected.";
+
+            }
+
+          }
+
+        );
+
+
+        onChildAdded(
+
+          ref(
+            db,
+            "rooms/" +
+            roomId +
+            "/candidates"
+          ),
+
+          async function(snapshot) {
+
+            const data =
+              snapshot.val();
+
+            if (
+              data &&
+              data.candidate
+            ) {
+
+              try {
+
+                await peerConnection.addIceCandidate(
+                  data.candidate
+                );
+
+              } catch (error) {
+
+                console.log(error);
+
+              }
+
+            }
+
+          }
+
+        );
+
 
       } catch (error) {
 
-        status.textContent =
-          "❌ Camera permission denied.";
-
         console.error(error);
+
+        status.textContent =
+          "❌ Camera permission failed.";
 
       }
 
-    });
+    }
+  );
 
-  </script>
+
+  viewerButton.addEventListener(
+    "click",
+    async function() {
+
+      roomId =
+        roomInput.value.trim();
+
+      if (!roomId) {
+
+        status.textContent =
+          "❌ Enter a room code first.";
+
+        return;
+
+      }
+
+
+      status.textContent =
+        "Connecting to camera...";
+
+
+      createConnection();
+
+
+      const roomSnapshot =
+        await get(
+
+          ref(
+            db,
+            "rooms/" +
+            roomId +
+            "/offer"
+          )
+
+        );
+
+
+      const offer =
+        roomSnapshot.val();
+
+
+      if (!offer) {
+
+        status.textContent =
+          "❌ Room not found or camera is not ready.";
+
+        return;
+
+      }
+
+
+      await peerConnection.setRemoteDescription(
+        offer
+      );
+
+
+      const answer =
+        await peerConnection.createAnswer();
+
+
+      await peerConnection.setLocalDescription(
+        answer
+      );
+
+
+      await set(
+
+        ref(
+          db,
+          "rooms/" +
+          roomId +
+          "/answer"
+        ),
+
+        {
+          type: answer.type,
+          sdp: answer.sdp
+        }
+
+      );
+
+
+      status.textContent =
+        "🔵 Connecting...";
+
+
+      onChildAdded(
+
+        ref(
+          db,
+          "rooms/" +
+          roomId +
+          "/candidates"
+        ),
+
+        async function(snapshot) {
+
+          const data =
+            snapshot.val();
+
+          if (
+            data &&
+            data.candidate
+          ) {
+
+            try {
+
+              await peerConnection.addIceCandidate(
+                data.candidate
+              );
+
+            } catch (error) {
+
+              console.log(error);
+
+            }
+
+          }
+
+        }
+
+      );
+
+    }
+  );
+
+
+  stopButton.addEventListener(
+    "click",
+    function() {
+
+      if (localStream) {
+
+        localStream
+          .getTracks()
+          .forEach(function(track) {
+
+            track.stop();
+
+          });
+
+        localStream = null;
+
+      }
+
+
+      if (peerConnection) {
+
+        peerConnection.close();
+
+        peerConnection = null;
+
+      }
+
+
+      localVideo.srcObject = null;
+
+      localVideo.style.display =
+        "none";
+
+
+      stopButton.style.display =
+        "none";
+
+      cameraButton.style.display =
+        "block";
+
+      viewerButton.style.display =
+        "block";
+
+
+      status.textContent =
+        "Camera is off.";
+
+    }
+  );
+
+</script>
 
 </body>
 </html>
