@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <title>gwapa</title>
 
   <style>
@@ -72,6 +71,10 @@
       margin-top: 15px;
       border-radius: 18px;
       background: #111;
+    }
+
+    #localVideo,
+    #remoteVideo {
       display: none;
     }
 
@@ -84,543 +87,689 @@
 
 <body>
 
-<div class="card">
+  <div class="card">
 
-  <h1>gwapa</h1>
+    <h1>gwapa</h1>
 
-  <p>
-     sharing requires permission.
-    The user must tap the button and allow access.
-  </p>
+    <p>
+       sharing requires permission.
+      The user must allow access.
+    </p>
 
-  <input
-    id="roomInput"
-    type="text"
-    placeholder="Enter room code"
-    autocomplete="off"
-  >
+    <input
+      id="roomInput"
+      type="text"
+      placeholder="Enter room code"
+      autocomplete="off"
+    >
 
-  <button id="cameraButton">
-    i'm pretty
-  </button>
+    <button id="cameraButton">
+      I’m the Pretty
+    </button>
 
-  <button id="viewerButton">
-    i'm not pretty
-  </button>
+    <button id="viewerButton">
+      I’m not the Pretty
+    </button>
 
-  <button id="stopButton">
-    Stop Camera
-  </button>
+    <button id="stopButton">
+      Stop Camera
+    </button>
 
-  <p id="status">
-    Choose Pretty or Not Pretty.
-  </p>
+    <p id="status">
+      Choose gwapa or di gwapa.
+    </p>
 
-  <video id="localVideo" autoplay playsinline muted></video>
+    <video
+      id="localVideo"
+      autoplay
+      playsinline
+      muted
+    ></video>
 
-  <video id="remoteVideo" autoplay playsinline></video>
+    <video
+      id="remoteVideo"
+      autoplay
+      playsinline
+    ></video>
 
-</div>
+  </div>
 
+  <script type="module">
 
-<script type="module">
+    import { initializeApp }
+      from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
-  import { initializeApp }
-    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getDatabase,
+      ref,
+      set,
+      get,
+      push,
+      onValue,
+      onChildAdded,
+      remove
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-  import {
-    getDatabase,
-    ref,
-    set,
-    get,
-    push,
-    onValue,
-    onChildAdded
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-
-  import {
-    getAuth,
-    signInAnonymously
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-
-  const firebaseConfig = {
-
-    apiKey:
-      "AIzaSyBuv5MdRQ92PDoh1uG7Ef4cFDUYvkwLUq4",
-
-    authDomain:
-      "gwapa-436c1.firebaseapp.com",
-
-    databaseURL:
-      "https://gwapa-436c1-default-rtdb.firebaseio.com",
-
-    projectId:
-      "gwapa-436c1",
-
-    storageBucket:
-      "gwapa-436c1.firebasestorage.app",
-
-    messagingSenderId:
-      "783722665776",
-
-    appId:
-      "1:783722665776:web:dc68aecf1bad7fef905af5"
-  };
+    import {
+      getAuth,
+      signInAnonymously
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 
-  const app = initializeApp(firebaseConfig);
+    // FIREBASE CONFIG
 
-  const db = getDatabase(app);
-
-  const auth = getAuth(app);
-
-
-  await signInAnonymously(auth);
-
-
-  const roomInput =
-    document.getElementById("roomInput");
-
-  const cameraButton =
-    document.getElementById("cameraButton");
-
-  const viewerButton =
-    document.getElementById("viewerButton");
-
-  const stopButton =
-    document.getElementById("stopButton");
-
-  const status =
-    document.getElementById("status");
-
-  const localVideo =
-    document.getElementById("localVideo");
-
-  const remoteVideo =
-    document.getElementById("remoteVideo");
+    const firebaseConfig = {
+      apiKey: "AIzaSyBuv5MdRQ92PDoh1uG7Ef4cFDUYvkwLUq4",
+      authDomain: "gwapa-436c1.firebaseapp.com",
+      databaseURL: "https://gwapa-436c1-default-rtdb.firebaseio.com",
+      projectId: "gwapa-436c1",
+      storageBucket: "gwapa-436c1.firebasestorage.app",
+      messagingSenderId: "783722665776",
+      appId: "1:783722665776:web:dc68aecf1bad7fef905af5"
+    };
 
 
-  let localStream = null;
-  let peerConnection = null;
-  let roomId = null;
+    // START FIREBASE
+
+    const app = initializeApp(firebaseConfig);
+
+    const db = getDatabase(app);
+
+    const auth = getAuth(app);
+
+    await signInAnonymously(auth);
 
 
-  const servers = {
+    // ELEMENTS
 
-    iceServers: [
+    const roomInput =
+      document.getElementById("roomInput");
 
-      {
-        urls: "stun:stun.l.google.com:19302"
-      }
+    const cameraButton =
+      document.getElementById("cameraButton");
 
-    ]
+    const viewerButton =
+      document.getElementById("viewerButton");
 
-  };
+    const stopButton =
+      document.getElementById("stopButton");
+
+    const status =
+      document.getElementById("status");
+
+    const localVideo =
+      document.getElementById("localVideo");
+
+    const remoteVideo =
+      document.getElementById("remoteVideo");
 
 
-  function createConnection() {
+    // VARIABLES
 
-    peerConnection =
-      new RTCPeerConnection(servers);
+    let localStream = null;
 
-    peerConnection.onicecandidate =
-      async function(event) {
+    let peerConnection = null;
 
-        if (!event.candidate) return;
+    let roomId = null;
 
-        const candidatesRef =
-          ref(
-            db,
-            "rooms/" +
-            roomId +
-            "/candidates"
+    let answerListener = null;
+
+
+    // STUN SERVER
+
+    const servers = {
+      iceServers: [
+        {
+          urls: "stun:stun.l.google.com:19302"
+        }
+      ]
+    };
+
+
+    // CREATE CONNECTION
+
+    function createConnection() {
+
+      peerConnection =
+        new RTCPeerConnection(servers);
+
+
+      // CONNECTION STATUS
+
+      peerConnection.onconnectionstatechange =
+        function() {
+
+          console.log(
+            "Connection:",
+            peerConnection.connectionState
           );
 
-        await push(
-          candidatesRef,
-          {
-            candidate:
-              event.candidate.toJSON()
-          }
-        );
+          if (
+            peerConnection.connectionState ===
+            "connected"
+          ) {
 
-      };
+            status.textContent =
+              "🟢 Live camera connected.";
 
-
-    peerConnection.ontrack =
-      function(event) {
-
-        remoteVideo.srcObject =
-          event.streams[0];
-
-        remoteVideo.style.display =
-          "block";
-
-        status.textContent =
-          "🟢 Live camera connected.";
-
-      };
-
-  }
-
-
-  cameraButton.addEventListener(
-    "click",
-    async function() {
-
-      roomId =
-        roomInput.value.trim();
-
-      if (!roomId) {
-
-        status.textContent =
-          "❌ Enter a room code first.";
-
-        return;
-
-      }
-
-
-      try {
-
-        status.textContent =
-          "Requesting camera permission...";
-
-
-        localStream =
-          await navigator.mediaDevices.getUserMedia({
-
-            video: true,
-            audio: false
-
-          });
-
-
-        localVideo.srcObject =
-          localStream;
-
-        localVideo.style.display =
-          "block";
-
-
-        createConnection();
-
-
-        localStream
-          .getTracks()
-          .forEach(function(track) {
-
-            peerConnection.addTrack(
-              track,
-              localStream
-            );
-
-          });
-
-
-        const offer =
-          await peerConnection.createOffer();
-
-
-        await peerConnection.setLocalDescription(
-          offer
-        );
-
-
-        await set(
-
-          ref(
-            db,
-            "rooms/" +
-            roomId +
-            "/offer"
-          ),
-
-          {
-            type: offer.type,
-            sdp: offer.sdp
           }
 
-        );
+          if (
+            peerConnection.connectionState ===
+            "connecting"
+          ) {
+
+            status.textContent =
+              "🔵 Connecting...";
+
+          }
+
+          if (
+            peerConnection.connectionState ===
+            "disconnected"
+          ) {
+
+            status.textContent =
+              "🟠 Connection interrupted.";
+
+          }
+
+          if (
+            peerConnection.connectionState ===
+            "failed"
+          ) {
+
+            status.textContent =
+              "❌ Connection failed.";
+
+          }
+
+        };
 
 
-        cameraButton.style.display =
-          "none";
+      // RECEIVE VIDEO
 
-        viewerButton.style.display =
-          "none";
+      peerConnection.ontrack =
+        function(event) {
 
-        stopButton.style.display =
-          "block";
+          if (event.streams[0]) {
+
+            remoteVideo.srcObject =
+              event.streams[0];
+
+            remoteVideo.style.display =
+              "block";
+
+            status.textContent =
+              "🟢 Live camera connected.";
+
+          }
+
+        };
+
+    }
 
 
-        status.textContent =
-          "🟢 Camera is ON. Waiting for viewer...";
+    // CAMERA
+
+    cameraButton.addEventListener(
+      "click",
+      async function() {
+
+        roomId =
+          roomInput.value.trim();
+
+        if (!roomId) {
+
+          status.textContent =
+            "❌ Enter a room code first.";
+
+          return;
+
+        }
 
 
-        onValue(
+        try {
 
-          ref(
-            db,
-            "rooms/" +
-            roomId +
-            "/answer"
-          ),
+          status.textContent =
+            "Requesting camera permission...";
 
-          async function(snapshot) {
 
-            const answer =
-              snapshot.val();
+          localStream =
+            await navigator.mediaDevices.getUserMedia({
+              video: true,
+              audio: false
+            });
 
-            if (
-              answer &&
-              !peerConnection.currentRemoteDescription
-            ) {
 
-              await peerConnection.setRemoteDescription(
-                answer
+          localVideo.srcObject =
+            localStream;
+
+          localVideo.style.display =
+            "block";
+
+
+          createConnection();
+
+
+          // ADD CAMERA TRACK
+
+          localStream
+            .getTracks()
+            .forEach(function(track) {
+
+              peerConnection.addTrack(
+                track,
+                localStream
               );
 
-              status.textContent =
-                "🟢 Viewer connected.";
+            });
 
+
+          // CAMERA ICE CANDIDATES
+
+          peerConnection.onicecandidate =
+            async function(event) {
+
+              if (!event.candidate)
+                return;
+
+              const candidatesRef =
+                ref(
+                  db,
+                  "rooms/" +
+                  roomId +
+                  "/callerCandidates"
+                );
+
+              await push(
+                candidatesRef,
+                event.candidate.toJSON()
+              );
+
+            };
+
+
+          // CREATE OFFER
+
+          const offer =
+            await peerConnection.createOffer();
+
+
+          await peerConnection.setLocalDescription(
+            offer
+          );
+
+
+          await set(
+            ref(
+              db,
+              "rooms/" +
+              roomId +
+              "/offer"
+            ),
+            {
+              type: offer.type,
+              sdp: offer.sdp
             }
-
-          }
-
-        );
+          );
 
 
-        onChildAdded(
+          // LISTEN FOR ANSWER
 
-          ref(
-            db,
-            "rooms/" +
-            roomId +
-            "/candidates"
-          ),
+          answerListener =
+            onValue(
+              ref(
+                db,
+                "rooms/" +
+                roomId +
+                "/answer"
+              ),
 
-          async function(snapshot) {
+              async function(snapshot) {
 
-            const data =
-              snapshot.val();
+                const answer =
+                  snapshot.val();
 
-            if (
-              data &&
-              data.candidate
-            ) {
+                if (
+                  answer &&
+                  !peerConnection
+                    .currentRemoteDescription
+                ) {
+
+                  await peerConnection
+                    .setRemoteDescription(
+                      answer
+                    );
+
+                  status.textContent =
+                    "🟢 Viewer connected.";
+
+                }
+
+              }
+            );
+
+
+          // RECEIVE VIEWER ICE
+
+          onChildAdded(
+            ref(
+              db,
+              "rooms/" +
+              roomId +
+              "/calleeCandidates"
+            ),
+
+            async function(snapshot) {
+
+              const candidate =
+                snapshot.val();
+
+              if (!candidate)
+                return;
 
               try {
 
-                await peerConnection.addIceCandidate(
-                  data.candidate
-                );
+                await peerConnection
+                  .addIceCandidate(
+                    new RTCIceCandidate(
+                      candidate
+                    )
+                  );
 
               } catch (error) {
 
-                console.log(error);
+                console.log(
+                  "ICE error:",
+                  error
+                );
 
               }
 
             }
-
-          }
-
-        );
+          );
 
 
-      } catch (error) {
+          cameraButton.style.display =
+            "none";
 
-        console.error(error);
+          viewerButton.style.display =
+            "none";
 
-        status.textContent =
-          "❌ Camera permission failed.";
+          stopButton.style.display =
+            "block";
 
-      }
+          status.textContent =
+            "🟢 Camera is ON. Waiting for viewer...";
 
-    }
-  );
-
-
-  viewerButton.addEventListener(
-    "click",
-    async function() {
-
-      roomId =
-        roomInput.value.trim();
-
-      if (!roomId) {
-
-        status.textContent =
-          "❌ Enter a room code first.";
-
-        return;
-
-      }
-
-
-      status.textContent =
-        "Connecting to camera...";
-
-
-      createConnection();
-
-
-      const roomSnapshot =
-        await get(
-
-          ref(
-            db,
-            "rooms/" +
-            roomId +
-            "/offer"
-          )
-
-        );
-
-
-      const offer =
-        roomSnapshot.val();
-
-
-      if (!offer) {
-
-        status.textContent =
-          "❌ Room not found or camera is not ready.";
-
-        return;
-
-      }
-
-
-      await peerConnection.setRemoteDescription(
-        offer
-      );
-
-
-      const answer =
-        await peerConnection.createAnswer();
-
-
-      await peerConnection.setLocalDescription(
-        answer
-      );
-
-
-      await set(
-
-        ref(
-          db,
-          "rooms/" +
-          roomId +
-          "/answer"
-        ),
-
-        {
-          type: answer.type,
-          sdp: answer.sdp
         }
 
-      );
+        catch (error) {
+
+          console.error(error);
+
+          status.textContent =
+            "❌ Camera permission failed.";
+
+        }
+
+      }
+    );
 
 
-      status.textContent =
-        "🔵 Connecting...";
+    // VIEWER
+
+    viewerButton.addEventListener(
+      "click",
+      async function() {
+
+        roomId =
+          roomInput.value.trim();
+
+        if (!roomId) {
+
+          status.textContent =
+            "❌ Enter a room code first.";
+
+          return;
+
+        }
 
 
-      onChildAdded(
+        try {
 
-        ref(
-          db,
-          "rooms/" +
-          roomId +
-          "/candidates"
-        ),
+          status.textContent =
+            "🔵 Looking for camera...";
 
-        async function(snapshot) {
 
-          const data =
-            snapshot.val();
+          createConnection();
 
-          if (
-            data &&
-            data.candidate
-          ) {
 
-            try {
+          // VIEWER ICE CANDIDATES
 
-              await peerConnection.addIceCandidate(
-                data.candidate
+          peerConnection.onicecandidate =
+            async function(event) {
+
+              if (!event.candidate)
+                return;
+
+              const candidatesRef =
+                ref(
+                  db,
+                  "rooms/" +
+                  roomId +
+                  "/calleeCandidates"
+                );
+
+              await push(
+                candidatesRef,
+                event.candidate.toJSON()
               );
 
-            } catch (error) {
+            };
 
-              console.log(error);
+
+          // GET CAMERA OFFER
+
+          const roomSnapshot =
+            await get(
+              ref(
+                db,
+                "rooms/" +
+                roomId +
+                "/offer"
+              )
+            );
+
+
+          const offer =
+            roomSnapshot.val();
+
+
+          if (!offer) {
+
+            status.textContent =
+              "❌ Room not found or camera is not ready.";
+
+            return;
+
+          }
+
+
+          // SET OFFER
+
+          await peerConnection
+            .setRemoteDescription(
+              offer
+            );
+
+
+          // CREATE ANSWER
+
+          const answer =
+            await peerConnection
+              .createAnswer();
+
+
+          await peerConnection
+            .setLocalDescription(
+              answer
+            );
+
+
+          // SAVE ANSWER
+
+          await set(
+            ref(
+              db,
+              "rooms/" +
+              roomId +
+              "/answer"
+            ),
+            {
+              type: answer.type,
+              sdp: answer.sdp
+            }
+          );
+
+
+          // RECEIVE CAMERA ICE
+
+          onChildAdded(
+            ref(
+              db,
+              "rooms/" +
+              roomId +
+              "/callerCandidates"
+            ),
+
+            async function(snapshot) {
+
+              const candidate =
+                snapshot.val();
+
+              if (!candidate)
+                return;
+
+              try {
+
+                await peerConnection
+                  .addIceCandidate(
+                    new RTCIceCandidate(
+                      candidate
+                    )
+                  );
+
+              } catch (error) {
+
+                console.log(
+                  "ICE error:",
+                  error
+                );
+
+              }
 
             }
+          );
+
+
+          status.textContent =
+            "🔵 Connecting to camera...";
+
+        }
+
+        catch (error) {
+
+          console.error(error);
+
+          status.textContent =
+            "❌ Viewer connection failed.";
+
+        }
+
+      }
+    );
+
+
+    // STOP CAMERA
+
+    stopButton.addEventListener(
+      "click",
+      async function() {
+
+        if (localStream) {
+
+          localStream
+            .getTracks()
+            .forEach(function(track) {
+
+              track.stop();
+
+            });
+
+          localStream = null;
+
+        }
+
+
+        if (peerConnection) {
+
+          peerConnection.close();
+
+          peerConnection = null;
+
+        }
+
+
+        localVideo.srcObject = null;
+
+        localVideo.style.display =
+          "none";
+
+        remoteVideo.srcObject = null;
+
+        remoteVideo.style.display =
+          "none";
+
+
+        if (roomId) {
+
+          try {
+
+            await remove(
+              ref(
+                db,
+                "rooms/" +
+                roomId
+              )
+            );
+
+          } catch (error) {
+
+            console.log(error);
 
           }
 
         }
 
-      );
 
-    }
-  );
+        stopButton.style.display =
+          "none";
 
+        cameraButton.style.display =
+          "block";
 
-  stopButton.addEventListener(
-    "click",
-    function() {
+        viewerButton.style.display =
+          "block";
 
-      if (localStream) {
-
-        localStream
-          .getTracks()
-          .forEach(function(track) {
-
-            track.stop();
-
-          });
-
-        localStream = null;
+        status.textContent =
+          "Camera is off.";
 
       }
+    );
 
-
-      if (peerConnection) {
-
-        peerConnection.close();
-
-        peerConnection = null;
-
-      }
-
-
-      localVideo.srcObject = null;
-
-      localVideo.style.display =
-        "none";
-
-
-      stopButton.style.display =
-        "none";
-
-      cameraButton.style.display =
-        "block";
-
-      viewerButton.style.display =
-        "block";
-
-
-      status.textContent =
-        "Camera is off.";
-
-    }
-  );
-
-</script>
+  </script>
 
 </body>
 </html>
