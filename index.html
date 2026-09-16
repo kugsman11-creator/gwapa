@@ -3,16 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <title>Live Camera</title>
 
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
     body {
       font-family: Arial, sans-serif;
       background: #f5f7fb;
@@ -39,38 +32,30 @@
 
     p {
       color: #666;
-      margin-bottom: 20px;
-    }
-
-    video {
-      width: 100%;
-      border-radius: 18px;
-      background: #111;
-      display: none;
-      margin-bottom: 15px;
     }
 
     button {
       width: 100%;
       padding: 15px;
+      margin-top: 15px;
       border: none;
       border-radius: 14px;
       background: #2563eb;
       color: white;
       font-size: 16px;
       font-weight: bold;
-      cursor: pointer;
-    }
-
-    #stopButton {
-      display: none;
-      background: #dc2626;
-      margin-top: 10px;
     }
 
     #status {
       margin-top: 15px;
-      font-size: 14px;
+    }
+
+    video {
+      width: 100%;
+      margin-top: 15px;
+      border-radius: 18px;
+      background: #111;
+      display: none;
     }
   </style>
 </head>
@@ -89,10 +74,6 @@
       Turn On Camera
     </button>
 
-    <button id="stopButton">
-      Stop Camera
-    </button>
-
     <p id="status">
       Camera is off.
     </p>
@@ -101,45 +82,109 @@
 
   </div>
 
-  <script>
+  <script type="module">
 
-    const startButton = document.getElementById("startButton");
-    const stopButton = document.getElementById("stopButton");
-    const video = document.getElementById("camera");
-    const status = document.getElementById("status");
+    import { initializeApp }
+      from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+    import {
+      getDatabase
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    import {
+      getAuth,
+      signInAnonymously
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+
+    const firebaseConfig = {
+
+      apiKey: "AIzaSyBuv5MdRQ92PDoh1uG7Ef4cFDUYvkwLUq4",
+
+      authDomain: "gwapa-436c1.firebaseapp.com",
+
+      databaseURL:
+        "https://gwapa-436c1-default-rtdb.firebaseio.com",
+
+      projectId: "gwapa-436c1",
+
+      storageBucket:
+        "gwapa-436c1.firebasestorage.app",
+
+      messagingSenderId: "783722665776",
+
+      appId:
+        "1:783722665776:web:dc68aecf1bad7fef905af5"
+    };
+
+
+    const app = initializeApp(firebaseConfig);
+
+    const db = getDatabase(app);
+
+    const auth = getAuth(app);
+
+
+    try {
+
+      await signInAnonymously(auth);
+
+      console.log("Firebase connected.");
+
+    } catch (error) {
+
+      console.error("Firebase error:", error);
+
+    }
+
+
+    const startButton =
+      document.getElementById("startButton");
+
+    const video =
+      document.getElementById("camera");
+
+    const status =
+      document.getElementById("status");
+
 
     let stream = null;
+
 
     startButton.addEventListener("click", async function() {
 
       try {
 
-        status.textContent = "Requesting camera permission...";
+        status.textContent =
+          "Requesting camera permission...";
 
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: false
-        });
+        stream =
+          await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false
+          });
 
         video.srcObject = stream;
+
         video.style.display = "block";
 
         startButton.style.display = "none";
-        stopButton.style.display = "block";
 
-        status.textContent = "🟢 Camera is ON.";
+        status.textContent =
+          "🟢 Camera is ON.";
 
       } catch (error) {
 
         status.textContent =
-          "❌ Camera permission was denied or unavailable.";
+          "❌ Camera permission denied.";
 
-        console.log(error);
+        console.error(error);
 
       }
 
     });
 
-    stopButton.addEventListener("click", function() {
+  </script>
 
-      if (
+</body>
+</html>
